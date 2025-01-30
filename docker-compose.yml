@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  web:
+    build: ./backend
+    container_name: ghost_protocol_web
+    command: gunicorn ghost_protocol.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./backend/.env.example
+
+  redis:
+    image: redis:latest
+    container_name: ghost_protocol_redis
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15
+    container_name: ghost_protocol_db
+    env_file:
+      - ./backend/.env.example
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  celery:
+    build: ./backend
+    container_name: ghost_protocol_celery
+    command: celery -A ghost_protocol worker -l info
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./backend/.env.example
+
+volumes:
+  postgres_data:

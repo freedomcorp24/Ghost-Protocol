@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Blocklist</h2>
+<div id="blockList" style="border:1px solid #666; padding:10px; margin-bottom:10px;"></div>
+
+<label>Block user by ID: <input type="text" id="blockUserId"/></label>
+<button onclick="blockUser()">Block</button>
+
+<script>
+async function loadBlocklist(){
+  let resp = await fetch("/accounts/webBlockList");
+  let data = await resp.json();
+  if(data.success){
+    let bl = document.getElementById('blockList');
+    bl.innerHTML = "";
+    data.blocks.forEach(b => {
+      bl.innerHTML += `<div>${b.blockedName} <button onclick="unblockUser(${b.blockId})">Unblock</button></div>`;
+    });
+  }
+}
+
+async function blockUser(){
+  let uid = document.getElementById('blockUserId').value;
+  if(!uid) return;
+  let fd = new FormData();
+  fd.append('blocked_id', uid);
+  let resp = await fetch("/accounts/webBlockAdd", {
+    method:'POST',
+    body:fd
+  });
+  let data = await resp.json();
+  if(data.success){
+    loadBlocklist();
+  } else { alert(data.message); }
+}
+
+async function unblockUser(bId){
+  let fd = new FormData();
+  fd.append('block_id', bId);
+  let resp = await fetch("/accounts/webBlockRemove", {
+    method:'POST',
+    body:fd
+  });
+  let data = await resp.json();
+  if(data.success){
+    loadBlocklist();
+  } else {
+    alert(data.message);
+  }
+}
+
+loadBlocklist();
+</script>
+{% endblock %}

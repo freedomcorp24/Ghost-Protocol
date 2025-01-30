@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Remove Premium from {{ user.username }}</h2>
+{% if subs %}
+  <p>They have {{ subs.count }} active subscription(s). Are you sure you want to deactivate them?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Remove Premium</button>
+  </form>
+{% else %}
+  <p>No active subscriptions found for this user.</p>
+{% endif %}
+{% endblock %}

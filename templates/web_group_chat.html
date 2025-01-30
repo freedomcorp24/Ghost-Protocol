@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Group Chat</h2>
+<label>Enter Group ID: <input type="text" id="groupId"/></label>
+<button onclick="loadGroup()">Load Group</button>
+
+<div id="groupBox" style="border:1px solid #555; height:300px; overflow:auto; margin-bottom:10px; padding:10px;">
+</div>
+
+<textarea id="groupInput" style="width:100%; height:50px; margin-bottom:8px;"></textarea><br/>
+<button onclick="sendGroupMsg()">Send</button>
+
+<script>
+async function loadGroup(){
+  let gId = document.getElementById('groupId').value;
+  let resp = await fetch("/messaging/webGroupList/"+gId);
+  let data = await resp.json();
+  if(data.success){
+    let groupBox = document.getElementById('groupBox');
+    groupBox.innerHTML = "";
+    data.messages.forEach(msg => {
+      groupBox.innerHTML += "<div><b>"+msg.sender+"</b>: "+msg.content+"</div>";
+    });
+  } else {
+    alert(data.message || "Error loading group");
+  }
+}
+
+async function sendGroupMsg(){
+  let gId = document.getElementById('groupId').value;
+  let content = document.getElementById('groupInput').value;
+  if(!gId || !content.trim()) return;
+  let fd = new FormData();
+  fd.append('content', content);
+  let resp = await fetch("/messaging/webGroupSend/"+gId, {
+    method:'POST',
+    body: fd
+  });
+  let data = await resp.json();
+  if(data.success){
+    document.getElementById('groupInput').value="";
+    loadGroup();
+  } else {
+    alert(data.message);
+  }
+}
+</script>
+{% endblock %}

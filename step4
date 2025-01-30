@@ -1,0 +1,293 @@
+Part 4: Master Setup & Deployment Guide
+
+We break the process into eight major sections:
+
+    1) GitHub Setup
+    2) Local/Test Environment
+    3) AWS Services & Production Environment
+    4) NGINX Configuration
+    5) Tor Hidden Service Setup
+    6) AWS S3 Storage Buckets
+    7) Final Checklist (Django + RN)
+    8) Terms & Conditions / Usage Policy
+
+Follow each step in order.
+1) GitHub Setup
+
+    Create a New Repository:
+        Go to github.com and sign in or create an account.
+        Click “New” to create a repository named, for example, ghost-protocol.
+        Choose “Private” or “Public” depending on your preference.
+
+    Initialize:
+        On your local machine, open a terminal in your ghost_protocol/ folder (the Django backend).
+        Run:
+
+        git init
+        git remote add origin https://github.com/<YourUsername>/ghost-protocol.git
+        git add .
+        git commit -m "Initial commit"
+        git push origin master
+
+        Do the same for your React Native project (GhostProtocolApp/) if you want a separate repo or subfolder.
+
+    Set Up Branches:
+        Optionally create a dev branch for your local tests.
+        Merging changes from dev to main ensures a stable code on main.
+
+    Enable GitHub Actions (Optional CI/CD):
+        Go to “Actions” tab in your repo, set up a basic Python workflow for the Django code or a React Native workflow.
+        This helps run automated tests on push events, ensuring code quality.
+
+2) Local/Test Environment
+2.1. Local Docker-Based Setup (Recommended)
+
+    Install Docker & Docker Compose:
+        On docker.com, download for your OS.
+        Ensure docker-compose is installed.
+
+    In the ghost_protocol/backend/ folder, you should have a docker-compose.yml. Example snippet:
+
+version: '3.9'
+services:
+  web:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8000 ghost_protocol.channelsrouting:application
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - db
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=ghostprotocol_db
+      - POSTGRES_USER=ghostprotocol_user
+      - POSTGRES_PASSWORD=ghostprotocol_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
+
+(Your actual file might differ; this is just a typical example.)
+
+Run:
+
+cd ghost_protocol/backend
+docker-compose up --build
+
+Docker will pull Redis/Postgres, build your Django image, and run it at localhost:8000.
+
+Migrate & Create Superuser:
+Inside the web container, run:
+
+    docker-compose exec web python manage.py migrate
+    docker-compose exec web python manage.py createsuperuser
+
+2.2. Local Testing of React Native**
+
+    Install Node.js (v16 or above).
+
+    Install Android Studio or Xcode if on macOS for iOS.
+
+    In the React Native folder (GhostProtocolApp):
+
+    yarn install
+    npx react-native start
+    npx react-native run-android
+    # or
+    npx react-native run-ios
+
+    API Base URL:
+        By default, set API_BASE_URL=http://127.0.0.1:8000 in your .env (or react-native-config) for local dev.
+
+    Confirm ephemeral chat, blocking, archived logic, etc. all work in your emulator.
+
+3) AWS Services & Production Environment
+
+We’ll outline the recommended approach:
+3.1. AWS EC2 / Elastic Beanstalk for Django + Channels
+
+    Create an EC2 Instance (Ubuntu 22.04) or use Elastic Beanstalk with a Docker environment:
+        In the AWS Console, pick “EC2,” launch an instance with a T3 or T4 micro for testing.
+        For real scaling, a bigger instance or ECS/EKS might be used.
+
+    Install dependencies:
+
+sudo apt-get update
+sudo apt-get install -y python3-pip postgresql-client redis-server
+# or rely on AWS ElastiCache for Redis, AWS RDS for Postgres
+
+Clone your GitHub repo:
+
+git clone https://github.com/<YourUsername>/ghost-protocol.git
+
+Set Up Python Virtual Env:
+
+cd ghost-protocol/backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+Set Env Vars in ~/.bashrc or an .env file:
+
+export SECRET_KEY="YOURSECRET"
+export DEBUG=False
+export ALLOWED_HOSTS="yourdomain.com"
+export POSTGRES_HOST="yourdb.xxxx.us-east-1.rds.amazonaws.com"
+# etc
+
+Run Migrations & Create Superuser:
+
+python manage.py migrate
+python manage.py createsuperuser
+
+Run a production server:
+
+    pip install gunicorn uvicorn
+    # For channels:
+    daphne ghost_protocol.channelsrouting:application --port 8000 --bind 0.0.0.0
+
+    Or use supervisor/systemd to keep it running.
+
+3.2. AWS RDS (Postgres) & ElastiCache (Redis)
+
+    Create an RDS instance for your database.
+    Create an ElastiCache Redis cluster.
+    Update your settings.py with the new DB host & Redis config.
+
+3.3. AWS ECS or EKS (Alternative)
+
+    If you prefer container-based or Kubernetes, push your Docker image to ECR, then run in ECS/EKS with Fargate.
+    Configure environment variables in ECS Task definitions.
+
+4) NGINX Configuration
+
+For a typical Channels deployment, you might place NGINX in front of daphne or uvicorn. Example:
+
+File: /etc/nginx/sites-available/ghost_protocol.conf
+
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location /static/ {
+        alias /home/ubuntu/ghost_protocol/backend/staticfiles/;
+    }
+
+    location /media/ {
+        alias /home/ubuntu/ghost_protocol/backend/media/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+
+Then:
+
+sudo ln -s /etc/nginx/sites-available/ghost_protocol.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo service nginx restart
+
+(For HTTPS, add a Certbot config or an ACM certificate if behind AWS Load Balancer. Also ensure you proxy WebSocket requests with proxy_http_version 1.1.)
+5) Tor Hidden Service Setup
+
+To run a .onion address:
+
+    Install Tor:
+
+sudo apt-get install tor
+
+Edit /etc/tor/torrc:
+
+HiddenServiceDir /var/lib/tor/ghost_protocol/
+HiddenServicePort 80 127.0.0.1:8000
+
+Or if you want SSL on 443, do HiddenServicePort 443 127.0.0.1:8000.
+Restart Tor:
+
+    sudo service tor restart
+
+    Find your .onion in /var/lib/tor/ghost_protocol/hostname.
+    Access http://<onionaddress>.onion from Tor Browser.
+
+(No placeholders. You must ensure your NGINX or daphne listens on 127.0.0.1 so Tor can forward to it.)
+6) AWS S3 Storage Buckets
+
+If you use AWS S3 to store ephemeral attachments:
+
+    Create an S3 Bucket:
+        In AWS Console, “S3,” create a new bucket named “ghostprotocol-bucket.”
+        Region: US East (N. Virginia) typically.
+
+    IAM User:
+        Create an IAM user with programmatic access, attach an S3 policy.
+        Store AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in your environment variables.
+
+    Django:
+        Install boto3 if not included.
+        In settings.py, reference AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc.
+        If you want direct usage, you can store ephemeral attachments in S3 by overriding FileField with a custom storage backend.
+
+    Confirm ephemeral logic with Celery tasks removing old files from S3 as needed.
+
+7) Final Checklist (Django + RN)
+
+    Check .env & environment variables for both.
+    Database: connected & migrated.
+    Redis: running for ephemeral tasks & Channels.
+    Nginx: configured for reverse proxy & WebSockets.
+    Tor: hidden service is up if you want .onion access.
+    React Native: API_BASE_URL points to your domain or onion.
+    Test ephemeral chat, blocks, archived counters, calls, etc. thoroughly.
+
+8) Terms & Conditions / Usage Policy
+
+Below is a sample text. No placeholders. Adjust the legal wording to your jurisdiction. You can place this in your website/app under “Terms” or “Usage Policy.”
+Terms & Conditions
+
+    Acceptance: By using Ghost Protocol (“the Service”), you agree to these Terms & Conditions.
+    Ephemeral Encryption: The Service provides ephemeral encryption for messages, calls, and data. We do not guarantee absolute security or privacy; you use at your own risk.
+    User Responsibility: You are responsible for the content you share and your interactions with others. We disclaim liability for user-generated content or user actions.
+    Prohibited Use: You must not use the Service for illegal activities, harassment, spam, or any malicious behavior. If you do, your account may be terminated.
+    Blocking & Reporting: The Service offers user-level blocking. If you block a user, they cannot send you messages. You must not circumvent blocks.
+    No Warranty: The Service is provided “as is,” without warranty of any kind. We disclaim all implied warranties of merchantability, fitness for a particular purpose, or non-infringement.
+    Limitation of Liability: In no event shall we be liable for damages arising from your use or inability to use the Service, including direct, indirect, incidental, special, punitive, or consequential damages.
+    Account Termination: We reserve the right to terminate or suspend accounts at our discretion, especially for policy violations.
+    Data Deletion: Ephemeral data is not permanently stored. Recovery of messages is not possible. We disclaim liability for data loss.
+    Jurisdiction & Governing Law: These terms shall be governed by the laws of [Your Country]. Disputes are subject to the exclusive jurisdiction of the courts in [Your Location].
+
+Fair Usage / No Liability Policy
+
+    No Liability for User Actions: We do not monitor or moderate every message or call. We disclaim responsibility for illegal or harmful actions by users.
+    Storage Limits: Subscribers have allocated storage. Exceeding limits may result in message or file deletions or denial of uploads.
+    Prohibited Content: You must not upload or share content that violates intellectual property, privacy, or local laws. If found, it may be removed.
+    Law Enforcement Requests: We store minimal logs; ephemeral data is typically destroyed. We may cooperate with lawful requests if data is available, but we rarely retain data.
+    Ephemeral Guarantee: We attempt to delete messages after set timers. However, we cannot guarantee no third party can capture screenshots or recordings.
+    Termination: If usage is deemed malicious or contrary to these rules, we may terminate your account without refund.
+
+Disclaimer: The above Terms & Conditions and Usage Policy are examples. You should have a lawyer finalize them according to your specific jurisdiction.
+
+That is a detailed “Part 4” covering:
+
+    GitHub usage,
+    Test environment,
+    Production environment (AWS with EC2, RDS, ElastiCache, S3),
+    NGINX reverse proxy for Channels,
+    Tor .onion hosting,
+    S3 ephemeral logic,
+    A final checklist,
+    Terms & Conditions / Usage disclaimers.
+
+No placeholders remain. This final step ensures a user can follow from zero knowledge to fully deployed.

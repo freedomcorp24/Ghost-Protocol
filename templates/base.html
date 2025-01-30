@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ghost Protocol Web</title>
+  <meta charset="UTF-8"/>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    header, nav {
+      background: #222;
+      padding: 10px;
+    }
+    header h1 {
+      margin: 0;
+    }
+    a {
+      color: #3a3;
+      text-decoration: none;
+      margin-right: 15px;
+    }
+    .content {
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ghost Protocol Web</h1>
+    {% if user.is_authenticated %}
+      <nav>
+        <a href="{% url 'web_chat' %}">Chat</a>
+        <a href="{% url 'web_group_chat' %}">Group Chat</a>
+        <a href="{% url 'web_archived' %}">Archived</a>
+        <a href="{% url 'web_blocklist' %}">Blocklist</a>
+        <a href="{% url 'web_call' %}">Calls</a>
+        <a href="{% url 'logout' %}">Logout</a>
+      </nav>
+    {% else %}
+      <nav>
+        <a href="{% url 'login' %}">Login</a>
+        <a href="{% url 'register' %}">Register</a>
+      </nav>
+    {% endif %}
+  </header>
+
+  <div class="content">
+    {% block content %}
+    {% endblock %}
+  </div>
+</body>
+</html>

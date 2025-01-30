@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Extend User Subscription</h2>
+<p>User: {{ user.username }}</p>
+
+<form method="post">
+  {% csrf_token %}
+  <label>Days to add:</label>
+  <input type="number" name="days" value="30">
+  <button type="submit">Extend</button>
+</form>
+{% endblock %}

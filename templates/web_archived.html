@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Archived Messages</h2>
+<div id="archivedBox" style="border:1px solid #555; height:300px; overflow:auto; margin-bottom:10px; padding:10px;"></div>
+
+<script>
+async function loadArchived(){
+  let resp = await fetch("/messaging/webArchivedList");
+  let data = await resp.json();
+  if(data.success){
+    let box = document.getElementById('archivedBox');
+    box.innerHTML = "";
+    data.messages.forEach(msg => {
+      box.innerHTML += "<div><b>"+msg.sender+"</b>: "+msg.content+" <button onclick='unarchive("+msg.id+")'>Unarchive</button></div>";
+    });
+  }
+}
+
+async function unarchive(msgId){
+  let resp = await fetch("/messaging/webUnarchive/"+msgId, {method:'POST'});
+  let data = await resp.json();
+  if(data.success){
+    loadArchived();
+  }
+}
+
+loadArchived();
+</script>
+{% endblock %}

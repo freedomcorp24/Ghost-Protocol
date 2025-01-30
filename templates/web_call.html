@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Web Calls</h2>
+<div>
+  <button onclick="createCall()">Create 1-on-1</button>
+  <button onclick="createCall(true)">Create Group Call</button>
+  <label>Join ID: <input type="text" id="joinId"/></label>
+  <button onclick="joinCall()">Join</button>
+</div>
+
+<video id="localVideo" autoplay playsinline muted style="width:200px; background:#333;"></video>
+<video id="remoteVideo" autoplay playsinline style="width:200px; background:#333;"></video>
+
+<script>
+let localStream, remoteStream;
+let sessionId = "";
+let ws = null;
+let pc = null; // RTCPeerConnection
+
+async function createCall(isGroup=false){
+  let fd = new FormData();
+  fd.append('is_group', isGroup?'true':'false');
+  let resp = await fetch("/call/create/", {method:'POST', body:fd});
+  let data = await resp.json();
+  if(data.success){
+    sessionId = data.session_id;
+    alert("Created session: "+sessionId);
+    startLocalStream();
+  }
+}
+
+async function joinCall(){
+  let sId = document.getElementById('joinId').value;
+  if(!sId) return;
+  let fd = new FormData();
+  fd.append('session_id', sId);
+  let resp = await fetch("/call/join/", {method:'POST', body:fd});
+  let data = await resp.json();
+  if(data.success){
+    sessionId = sId;
+    alert("Joined call: "+sId);
+    startLocalStream();
+  } else {
+    alert(data.msg||"Error joining");
+  }
+}
+
+async function startLocalStream(){
+  localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  document.getElementById('localVideo').srcObject = localStream;
+  setupWebSocket();
+}
+
+function setupWebSocket(){
+  ws = new WebSocket("wss://YOURDOMAIN/ws/call/"+sessionId+"/");
+  ws.onopen = ()=>{ console.log("WS open"); initPeerConnection(); };
+  ws.onmessage = (evt)=>{ handleSignal(JSON.parse(evt.data)); };
+}
+
+function initPeerConnection(){
+  let config = { iceServers: [{ urls:"stun:stun.l.google.com:19302"}] };
+  pc = new RTCPeerConnection(config);
+
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  pc.onicecandidate = (e)=>{
+    if(e.candidate){
+      ws.send(JSON.stringify({type:'candidate', candidate:e.candidate}));
+    }
+  };
+  pc.ontrack = (e)=>{
+    remoteStream = e.streams[0];
+    document.getElementById('remoteVideo').srcObject = remoteStream;
+  };
+  createOffer();
+}
+
+async function createOffer(){
+  let offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({type:'offer', sdp: offer}));
+}
+
+async function handleSignal(msg){
+  if(msg.type==='offer'){
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    let answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({type:'answer', sdp: answer}));
+  } else if(msg.type==='answer'){
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+  } else if(msg.type==='candidate'){
+    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Subscription(s) Removed</h2>
+<p>Deactivated {{ count }} subscription(s) for user: {{ user.username }}</p>
+<a href="{% url 'admin_panel:flagged_accounts' %}">Go back</a>
+{% endblock %}

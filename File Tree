@@ -1,0 +1,92 @@
+ghost_protocol/
+└── backend/
+    ├── .env.example
+    ├── Dockerfile
+    ├── manage.py
+    ├── requirements.txt
+    ├── ghost_protocol/
+    │   ├── __init__.py
+    │   ├── asgi.py
+    │   ├── celery.py
+    │   ├── channelsrouting.py   # new for channels
+    │   ├── settings.py
+    │   ├── urls.py
+    │   ├── wsgi.py
+    ├── accounts/
+    │   ├── __init__.py
+    │   ├── admin.py
+    │   ├── apps.py
+    │   ├── device_models.py
+    │   ├── forms.py
+    │   ├── migrations/
+    │   │   └── __init__.py
+    │   ├── models.py
+    │   ├── totp_flow.py
+    │   ├── urls.py
+    │   └── views.py
+    ├── messaging/
+    │   ├── __init__.py
+    │   ├── admin.py
+    │   ├── apps.py
+    │   ├── conversation_models.py
+    │   ├── group_models.py
+    │   ├── migrations/
+    │   │   └── __init__.py
+    │   ├── models.py
+    │   ├── serializers.py
+    │   ├── tasks.py
+    │   ├── urls.py
+    │   ├── views.py
+    │   ├── vault_logic.py
+    │   └── link_sharing.py
+    ├── payments/
+    ├── admin_panel/
+    ├── support/
+    ├── call/
+    │   ├── __init__.py
+    │   ├── admin.py
+    │   ├── apps.py
+    │   ├── consumers.py
+    │   ├── routing.py
+    │   ├── urls.py
+    │   ├── views.py
+    │   └── models.py
+    └── ...
+
+
+
+    GhostProtocolApp/
+    ├── App.js
+    ├── package.json
+    ├── babel.config.js
+    ├── .env.example
+    ├── android/
+    ├── ios/
+    ├── app/
+    │   ├── navigation/
+    │   │   └── MainNavigator.js
+    │   ├── screens/
+    │   │   ├── LoginScreen.js
+    │   │   ├── RegisterScreen.js
+    │   │   ├── HomeScreen.js
+    │   │   ├── ChatScreen.js
+    │   │   ├── VaultScreen.js
+    │   │   ├── SubscriptionScreen.js
+    │   │   ├── AdminWebView.js
+    │   │   ├── SettingsScreen.js
+    │   │   ├── TermsScreen.js
+    │   │   ├── BlockScreen.js       <-- new for user blocking
+    │   │   ├── QrCodeScreen.js      <-- new for QR contact
+    │   │   ├── CallScreen.js        <-- new for voice/video calls with PiP
+    │   ├── utils/
+    │   │   ├── screenshotBlocker.js
+    │   │   ├── torToggle.js
+    │   │   ├── inactivityLock.js    <-- new for auto-lock
+    │   ├── api/
+    │   │   ├── auth.js
+    │   │   ├── chat.js
+    │   │   ├── payments.js
+    │   │   └── block.js             <-- new for user blocking
+    │   ├── styles/
+    │   │   └── globalStyles.js
+    │   └── ...
